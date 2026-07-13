@@ -144,10 +144,13 @@ namespace Supabase.Gotrue
 
 			if (options.FlowType == OAuthFlowType.PKCE)
 			{
-				var challenge = Helpers.GenerateNonce();
-				verifier = Helpers.GeneratePKCENonceVerifier(challenge);
+				// codeVerifier is the secret returned to the caller; codeChallenge (its SHA-256) is sent to the server.
+				// See Helpers.GetUrlForProvider for the reference implementation of this derivation.
+				var codeVerifier = Helpers.GenerateNonce();
+				var codeChallenge = Helpers.GeneratePKCENonceVerifier(codeVerifier);
+				verifier = codeVerifier;
 
-				body.Add("code_challenge", challenge);
+				body.Add("code_challenge", codeChallenge);
 				body.Add("code_challenge_method", "s256");
 			}
 
@@ -253,7 +256,7 @@ namespace Supabase.Gotrue
 			return Helpers.MakeRequest<Session>(HttpMethod.Post, $"{Url}/token?grant_type=id_token", body, Headers);
 		}
 
-		private Task<SSOResponse?> SignInWithSsoInternal(Guid? providerId = null, string? domain = null, SignInWithSSOOptions? options = null)
+		private async Task<SSOResponse?> SignInWithSsoInternal(Guid? providerId = null, string? domain = null, SignInWithSSOOptions? options = null)
 		{
 			if(providerId != null && domain != null)
 				throw new GotrueException($"Both providerId and domain were provided to the API, " +
@@ -262,11 +265,12 @@ namespace Supabase.Gotrue
 				throw new GotrueException($"Both providerId and domain were null " +
 				                          $"you must supply either one or the other but not both providerId={providerId}, domain={domain}");
 
+			string? codeVerifier = null;
 			string? codeChallenge = null;
 			string? codeChallengeMethod = null;
 			if (options?.FlowType == OAuthFlowType.PKCE)
 			{
-				var codeVerifier = Helpers.GenerateNonce();
+				codeVerifier = Helpers.GenerateNonce();
 				codeChallenge = Helpers.GeneratePKCENonceVerifier(codeVerifier);
 				codeChallengeMethod = "s256";
 			}
@@ -287,7 +291,13 @@ namespace Supabase.Gotrue
 			if (!string.IsNullOrEmpty(options?.CaptchaToken))
 				body.Add("gotrue_meta_security", new Dictionary<string, object?> { { "captcha_token", options?.CaptchaToken } });
 
-			return Helpers.MakeRequest<SSOResponse>(HttpMethod.Post, $"{Url}/sso", body, Headers);
+			var response = await Helpers.MakeRequest<SSOResponse>(HttpMethod.Post, $"{Url}/sso", body, Headers);
+			// The server never sees the raw verifier (only its SHA-256 challenge), so it can't echo it back in the
+			// response body — we must attach the verifier we generated ourselves before returning to the caller.
+			if (response != null && codeVerifier != null)
+				response.PKCEVerifier = codeVerifier;
+
+			return response;
 		}
 
 		/// <inheritdoc />
@@ -488,10 +498,13 @@ namespace Supabase.Gotrue
 
 			if (options.FlowType == OAuthFlowType.PKCE)
 			{
-				var challenge = Helpers.GenerateNonce();
-				verifier = Helpers.GeneratePKCENonceVerifier(challenge);
+				// codeVerifier is the secret returned to the caller; codeChallenge (its SHA-256) is sent to the server.
+				// See Helpers.GetUrlForProvider for the reference implementation of this derivation.
+				var codeVerifier = Helpers.GenerateNonce();
+				var codeChallenge = Helpers.GeneratePKCENonceVerifier(codeVerifier);
+				verifier = codeVerifier;
 
-				body.Add("code_challenge", challenge);
+				body.Add("code_challenge", codeChallenge);
 				body.Add("code_challenge_method", "s256");
 			}
 
