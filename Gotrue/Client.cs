@@ -495,6 +495,18 @@ namespace Supabase.Gotrue
 		}
 
 		/// <inheritdoc />
+		public Session SetSession(Session session)
+		{
+			if (string.IsNullOrEmpty(session.AccessToken) || string.IsNullOrEmpty(session.RefreshToken))
+				throw new GotrueException("`accessToken` and `refreshToken` cannot be empty.", NoSessionFound);
+
+			DestroySession();
+			CurrentSession = session;
+			NotifyAuthStateChange(SignedIn);
+			return session;
+		}
+
+		/// <inheritdoc />
 		public async Task<Session> SetSession(string accessToken, string refreshToken, bool forceAccessTokenRefresh = false)
 		{
 			DestroySession();
