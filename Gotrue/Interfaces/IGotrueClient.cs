@@ -165,6 +165,15 @@ namespace Supabase.Gotrue.Interfaces
 		Task<TSession> SetSession(string accessToken, string refreshToken, bool forceAccessTokenRefresh = false);
 
 		/// <summary>
+		/// Installs a session that was minted out of band, for example returned by an edge
+		/// function, complete with its user. Unlike <see cref="SetSession(string,string,bool)"/>
+		/// this makes no request: the caller vouches for the tokens and the user they carry.
+		/// Raises <see cref="AuthState.SignedIn"/>.
+		/// </summary>
+		/// <exception cref="GotrueException">Raised when the session lacks a token.</exception>
+		TSession SetSession(TSession session);
+
+		/// <summary>
 		/// Log in an existing user, or login via a third-party provider.
 		/// </summary>
 		/// <param name="type">Type of Credentials being passed</param>
